@@ -1,0 +1,326 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+ 
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model with authentication and preferences
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  firstName   String?
+  lastName    String?
+  avatar      String?
+  role        UserRole @default(USER)
+  isActive    Boolean  @default(true)
+  
+  // MFA settings
+  mfaEnabled  Boolean  @default(false)
+  mfaSecret   String?
+  
+  // Preferences (stored as JSON)
+  preferences Json?
+  
+  // Relationships
+  projects    ProjectMember[]
+  clients     Client[]
+  documents   Document[]
+  interactions Interaction[]
+  organizedEvents CalendarEvent[] @relation("EventOrganizer")
+  eventAttendances EventAttendee[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  USER
+  VIEWER
+}
+
+// Project model with AI insights
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(PLANNING)
+  
+  // Timeline
+  startDate   DateTime?
+  endDate     DateTime?
+  
+  // AI insights (stored as JSON)
+  aiInsights  Json?
+  
+  // Relationships
+  client      Client?       @relation(fields: [clientId], references: [id])
+  clientId    String?
+  members     ProjectMember[]
+  documents   Document[]
+  events      CalendarEvent[]
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+// Project membership with roles
+model ProjectMember {
+  id        String      @id @default(cuid())
+  role      ProjectRole @default(MEMBER)
+  
+  // Relationships
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+  @@unique([userId, projectId])
+  @@map("project_members")
+}
+
+enum ProjectRole {
+  OWNER
+  MANAGER
+  MEMBER
+  VIEWER
+}
+
+// Client model with AI profile
+model Client {
+  id                      String   @id @default(cuid())
+  name                    String
+  firstName               String?
+  lastName                String?
+  email                   String?
+  phone                   String?
+  role                    String?
+  department              String?
+  preferredContactMethod  String?
+  communicationStyle      String?
+  timezone                String?
+  language                String?
+  companyLegalName        String?
+  industry                String?
+  companySize             String?
+  website                 String?
+  streetAddress           String?
+  city                    String?
+  stateProvince           String?
+  postalCode              String?
+  country                 String?
+  clientStatus            String?
+  clientTier              String?
+  totalRevenue            Float?
+  averageProjectValue     Float?
+  contractTerms           String?
+  
+  // AI profile data (stored as JSON)
+  aiProfile   Json?
+  
+  // Relationships
+  owner       User         @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  projects    Project[]
+  interactions Interaction[]
+  documents   Document[]
+  events      CalendarEvent[]
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  @@map("clients")
+}
+
+// Document model for RAG system
+model Document {
+  id          String       @id @default(cuid())
+  title       String
+  content     String
+  type        DocumentType @default(TEXT)
+  fileUrl     String?
+  
+  // Metadata for RAG (stored as JSON)
+  metadata    Json?
+  tags        String[]
+  
+  // Access control
+  accessLevel AccessLevel  @default(PRIVATE)
+  
+  // Relationships
+  owner       User         @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  project     Project?     @relation(fields: [projectId], references: [id])
+  projectId   String?
+  client      Client?      @relation(fields: [clientId], references: [id])
+  clientId    String?
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  @@map("documents")
+}
+
+enum DocumentType {
+  TEXT
+  PDF
+  IMAGE
+  SPREADSHEET
+  PRESENTATION
+  OTHER
+}
+
+enum AccessLevel {
+  PUBLIC
+  TEAM
+  PROJECT
+  PRIVATE
+}
+
+// Interaction tracking for client relationships
+model Interaction {
+  id          String          @id @default(cuid())
+  type        InteractionType
+  subject     String?
+  content     String?
+  
+  // Metadata (stored as JSON)
+  metadata    Json?
+  
+  // Relationships
+  user        User            @relation(fields: [userId], references: [id])
+  userId      String
+  client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId    String
+  
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  @@map("interactions")
+}
+
+// Calendar Event model
+model CalendarEvent {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  isAllDay    Boolean     @default(false)
+  
+  // Event type and priority
+  type        EventType   @default(MEETING)
+  priority    EventPriority @default(MEDIUM)
+  status      EventStatus @default(CONFIRMED)
+  
+  // Organizer and attendees
+  organizer   User        @relation("EventOrganizer", fields: [organizerId], references: [id])
+  organizerId String
+  attendees   EventAttendee[]
+  
+  // AI insights and metadata (stored as JSON)
+  aiSuggestions Json?
+  metadata    Json?
+  
+  // External calendar integration
+  externalCalendarId String?
+  externalEventId    String?
+  
+  // Relationships
+  project     Project?    @relation(fields: [projectId], references: [id])
+  projectId   String?
+  client      Client?     @relation(fields: [clientId], references: [id])
+  clientId    String?
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@map("calendar_events")
+}
+
+// Event Attendee model
+model EventAttendee {
+  id        String        @id @default(cuid())
+  email     String
+  name      String
+  status    AttendeeStatus @default(PENDING)
+  isOptional Boolean      @default(false)
+  
+  // Relationships
+  user      User?         @relation(fields: [userId], references: [id])
+  userId    String?
+  event     CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String
+  
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  
+  @@map("event_attendees")
+}
+
+enum InteractionType {
+  EMAIL
+  PHONE
+  MEETING
+  NOTE
+  TASK
+  OTHER
+}
+
+// Calendar and Event enums
+enum EventType {
+  MEETING
+  APPOINTMENT
+  TASK
+  REMINDER
+  DEADLINE
+  PERSONAL
+  TRAVEL
+  BREAK
+}
+
+enum EventPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum EventStatus {
+  CONFIRMED
+  TENTATIVE
+  CANCELLED
+  COMPLETED
+}
+
+enum AttendeeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}

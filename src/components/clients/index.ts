@@ -1,0 +1,10 @@
+export { default as ClientList } from './ClientList';
+export { default as ClientForm } from './ClientForm';
+export { default as ClientDashboard } from './ClientDashboard';
+export { default as ClientInteractionTimeline } from './ClientInteractionTimeline';
+export { default as ClientEngagementMetrics } from './ClientEngagementMetrics';
+export { default as CreateClientDialog } from './CreateClientDialog';
+export { default as ClientFilters } from './ClientFilters';
+export { default as ClientCard } from './ClientCard';
+export { default as InteractionForm } from './InteractionForm';
+export { default as CommunicationPreferences } from './CommunicationPreferences';
